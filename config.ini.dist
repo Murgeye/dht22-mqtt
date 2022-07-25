@@ -1,0 +1,50 @@
+# DHT22 Raspberry MQTT Client/Daemon
+# Source: https://github.com/Murgeye/dht22-mqtt
+#
+# Uncomment and adapt all settings as needed.
+[General]
+MAX_ERRORS = 10
+
+[Daemon]
+# Enable or Disable an endless execution loop (Default: true)
+ENABLED = true
+
+# The period between two measurements in seconds (Default: 120)
+PERIOD = 120
+
+[DHT22]
+# GPIO Pin the sensor is connected to (default: 4)
+PIN = 4
+
+[MQTT]
+# The hostname or IP address of the MQTT broker to connect to (Default: localhost)
+HOSTNAME = localhost
+# The TCP port the MQTT broker is listening on (Default: 1883)
+# For TLS, it usually is 8883
+PORT = 1883
+
+# Maximum period in seconds between ping messages to the broker. (Default: 60)
+KEEPALIVE = 60
+
+# The MQTT base topic to publish sensor data topics under.
+BASE_TOPIC = homeassistant
+
+# Name of the sensor. (Default: hostname_dht22)  
+#SENSOR_NAME = dht22
+
+# The MQTT broker authentification credentials (Default: no authentication)
+#USERNAME = dht22_sensor
+#PASSWORD = password
+
+# Enable TLS/SSL on the connection (default: false)
+# TLS = true
+
+# All certificates should be in PEM format
+# Path to CA Certificate file to verify host (no default)
+#TLS_CA_CERT = 
+
+# Path to TLS client auth key file (no default)
+#TLS_KEYFILE =
+
+# Path to TLS client auth certificate file (no default)
+#TLS_CERTFILE =

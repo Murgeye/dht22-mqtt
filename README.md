@@ -1,12 +1,22 @@
-# dht22-mqtt
+# dht22-mqtt for Home Assistant
 
-![PEP8](https://github.com/rsaikali/dht22-mqtt/workflows/PEP8/badge.svg)
-![Docker](https://github.com/rsaikali/dht22-mqtt/workflows/Docker/badge.svg)
+This is a fork of [rsaikali/dht22-mqtt](https://github.com/rsaikali/dht22-mqtt) for usage with [Home Assistant](https://www.home-assistant.io)
+and a TLS enabled MQTT broker.
 
 `dht22-mqtt` is a Python script to get temperature and humidity measures published to a MQTT (message queue) broker.
 Temperature and humidity are retrieved through a DHT22 sensor (connected to RaspberryPi GPIO in my case).
 
 Measurements are retrieved using the given GPIO pin, and published into MQTT broker given the topic, host and port you have configured.
+
+## Fork Differences
+* Most things adapted from [R4scal/mhz19-mqtt-daemon](https://github.com/R4scal/mhz19-mqtt-daemon)
+* Read parameters from config file, not from environment variables
+* MQTT with TLS support
+* Home Assistant style topics
+* Home Assistant style service discovery
+* Allow running for one-time reading (by setting Daemon enabled to false)
+* Some cleanup
+* For now: no explicit docker setup (but should work pretty much the same as before)
 
 ## Hardware needed
 
@@ -30,13 +40,13 @@ Install Linux requirements on RaspberryPi:
 
 ```sh
 apt-get update
-apt-get install --no-install-recommends -y libgpiod2 gcc build-essential
+apt-get install --no-install-recommends -y libgpiod2
 ```
 
 Git clone the project:
 
 ```sh
-git clone https://github.com/rsaikali/dht22-mqtt.git
+git clone https://github.com/Murgeye/dht22-mqtt.git
 cd dht22-mqtt
 ```
 
@@ -46,112 +56,51 @@ Install Python requirements:
 pip3 install -r requirements.txt
 ```
 
-Configure through environment variables (those are default values if nothing given):
-
-```sh
-# Which Raspberry GPIO pin to use
-export DHT22_PIN=4
-# How many seconds between measures
-export DHT22_CHECK_EVERY=10
-
-# MQTT broker host
-export MQTT_SERVICE_HOST=mosquitto.local
-# MQTT broker port
-export MQTT_SERVICE_PORT=1883
-# MQTT broker user - optional
-export MQTT_SERVICE_USER=mqtt_user
-# MQTT broker password - optional
-export MQTT_SERVICE_PASSWORD=very_strong_password
- 
-# MQTT broker topic to publish measures
-export MQTT_SERVICE_TOPIC=home/livingroom
-# MQTT client ID (default will be the hostname)
-export MQTT_CLIENT_ID=dht22-mqtt-service
+Copy the config.ini.dist to config.ini:
 ```
+cp config.ini.dist config.ini
+```
+
+Edit the config according to your needs. Settings should be documented in the `config.ini.dist`.
 
 If you do not set user and password environment variables, auth is not used. 
 
 Launch application:
 
 ```sh
-python ./dht22-mqtt.py
+python ./dht22_mqtt.py
 ```
 
 You should see output printed:
 ```sh
 (...)
-2020-02-16 10:57:50 [dht22-mqtt-service] [+] [home/livingroom/temperature] --- 20.7°C ---> [mosquitto.local:1883]
-2020-02-16 10:57:50 [dht22-mqtt-service] [+] [home/livingroom/humidity] ------ 55.7% ----> [mosquitto.local:1883]
-2020-02-16 10:58:00 [dht22-mqtt-service] [+] [home/livingroom/temperature] --- 20.9°C ---> [mosquitto.local:1883]
-2020-02-16 10:58:00 [dht22-mqtt-service] [+] [home/livingroom/humidity] ------ 55.8% ----> [mosquitto.local:1883]
+2022-07-25 12:04:34,128 [DHT22-MQTT] INFO     MQTT connection established
+2022-07-25 12:04:35,128 [DHT22-MQTT] INFO     Initializing DHT-22, PIN 4
+2022-07-25 12:04:35,133 [DHT22-MQTT] INFO     Announcing DHT-22 to MQTT broker for auto-discovery ...
+2022-07-25 12:04:35,134 [DHT22-MQTT] INFO     Retrieving data from DHT-22 sensor...
+2022-07-25 12:04:35,397 [DHT22-MQTT] INFO     publishing: {"temperature": 27.6, "humidity": 64.3} --> homeassistant/sensor/state
+2022-07-25 12:04:35,900 [DHT22-MQTT] INFO     Sleeping (120 seconds) ...
 (...)
 ```
 
-### Use as Docker container
+## Running as systemd service
 
-#### Use Docker hub image
+To keep this script running in the background and on startup, use the supplied `dht22_sensor.service` file.
 
-An image is available on Docker Hub: [rsaikali/dht22-mqtt](https://hub.docker.com/r/rsaikali/dht22-mqtt)
-
-Needed environment is obviously the same as the standalone script mechanism, described in the Dockerfile:
-
-Please note that you'll need to use `--privileged` when running Docker to have access to GPIO.
-
+1. Change the service file by setting WorkingDirectory to the directory you cloned this repository to.
+2. Change the path to the python file in ExecStart.
+3. Run:
 ```sh
-docker run --name dht22-mqtt \
-           --privileged \
-           --restart=always \
-           --net=host \
-           -tid \
-           -e DHT22_PIN=4 \
-           -e DHT22_CHECK_EVERY=10 \
-           -e MQTT_SERVICE_HOST=mosquitto.local \
-           -e MQTT_SERVICE_PORT=1883 \
-           -e MQTT_SERVICE_USER=mqtt_user \
-           -e MQTT_SERVICE_PASSWORD=very_strong_password \           
-           -e MQTT_SERVICE_TOPIC=home/livingroom \
-           -e MQTT_CLIENT_ID=dht22-mqtt-service \
-           rsaikali/dht22-mqtt
+# Symlink the service file
+sudo ln -s $PWD/dht22_sensor.service /etc/systemd/system/dht22_sensor.service 
+# Reload service files
+sudo systemctl daemon-reload
+# Start the service
+sudo systemctl start dht22_sensor.service
+# Enable startup
+sudo systemctl enable dht22_sensor.service
 ```
-
-#### Build your own Docker image
-
-To build an `linux/arm/v7` docker image from another architecture, you'll need a special (experimental) Docker multi-architecture build functionality detailled here: [Building Multi-Arch Images for Arm and x86 with Docker Desktop](https://www.docker.com/blog/multi-arch-images/)
-
-You'll basically need to activate experimental features and use `buildx`.
-
-```sh
-export DOCKER_CLI_EXPERIMENTAL=enabled
-docker buildx create --use --name build --node build --driver-opt network=host
-docker buildx build --platform linux/arm/v7 -t <your-repo>/dht22-mqtt --push .
+4. Check status with
 ```
-
-## Known issues
-
-DHT22 sensor is not extremely reliable, you'll sometimes find errors in log, those are not a big deal, as it will retry by itself.
-
-```
-2020-02-16 11:05:00 [dht22-mqtt-service] [+] [home/livingroom/temperature] --- 22.7°C ---> [mosquitto.local:1883]
-2020-02-16 11:05:00 [dht22-mqtt-service] [+] [home/livingroom/humidity] ------ 56.6% ----> [mosquitto.local:1883]
-2020-02-16 11:05:10 [dht22-mqtt-service] [-] An error occured while getting DHT22 measure
-2020-02-16 11:05:10 [dht22-mqtt-service] [-] Checksum did not validate. Try again.
-2020-02-16 11:05:20 [dht22-mqtt-service] [+] [home/livingroom/temperature] --- 22.9°C ---> [mosquitto.local:1883]
-2020-02-16 11:05:20 [dht22-mqtt-service] [+] [home/livingroom/humidity] ------ 56.8% ----> [mosquitto.local:1883]
-```
-
-When running, a required library may take 100% CPU or return bad reading, those are known bugs with issues in progress:
-
-* [adafruit/Adafruit_Blinka: 100% CPU use of libgpiod_pulsein on Raspberry Pi](https://github.com/adafruit/Adafruit_Blinka/issues/210)
-* [adafruit/Adafruit_CircuitPython_DHT: Improve error handling](https://github.com/adafruit/Adafruit_CircuitPython_DHT/pull/31)
-
-```
-top - 11:10:00 up 12:27,  1 user,  load average: 2.00, 2.01, 2.03
-Tasks: 130 total,   3 running, 127 sleeping,   0 stopped,   0 zombie
-%Cpu(s):  9.0 us, 18.0 sy,  0.0 ni, 72.9 id,  0.0 wa,  0.0 hi,  0.1 si,  0.0 st
-MiB Mem :   3854.5 total,   3134.0 free,    222.5 used,    498.0 buff/cache
-MiB Swap:      0.0 total,      0.0 free,      0.0 used.   3521.4 avail Mem
-
-  PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
-11407 root      rt   0    1496    340    284 R 100.0   0.0  43:56.08 libgpiod_pulsei
-    9 root      20   0       0      0      0 S   0.4   0.0   0:02.95 ksoftirqd/0
+sudo systemctl status dht22_sensor.service
 ```

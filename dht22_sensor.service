@@ -1,0 +1,17 @@
+[Unit]
+Description=Get DHT22 sensor values and post to mqtt broker
+After=rc-local.service
+
+[Service]
+User=pi
+WorkingDirectory=/opt/dht22-mqtt/
+ExecStart=/usr/bin/python3 /opt/dht22-mqtt/dht22_mqtt.py
+Restart=always
+#RestartSec=90
+RestartSec=30
+Type=simple
+PIDFile=/var/run/dht_22.pid
+
+[Install]
+WantedBy=multi-user.target
+
